@@ -12,6 +12,8 @@ function makeSegment(overrides: Partial<Segment> = {}): Segment {
     text: "Hello world",
     edited_text: null,
     pii_flagged: false,
+    speaker_override: null,
+    excluded: false,
     ...overrides,
   };
 }
@@ -59,10 +61,10 @@ describe("SegmentList", () => {
       makeSegment({ index: 1, start: 5, end: 10, speaker: "SPEAKER_01" }),
     ];
 
-    render(<SegmentList segments={segments} />);
+    render(<SegmentList segments={segments} speakers={["SPEAKER_00", "SPEAKER_01"]} />);
 
-    expect(screen.getByTestId("segment-speaker-0")).toHaveTextContent("SPEAKER_00");
-    expect(screen.getByTestId("segment-speaker-1")).toHaveTextContent("SPEAKER_01");
+    expect(screen.getByTestId("segment-speaker-select-0")).toHaveTextContent("SPEAKER_00");
+    expect(screen.getByTestId("segment-speaker-select-1")).toHaveTextContent("SPEAKER_01");
   });
 
   it("displays start and end timestamps for each segment", () => {
@@ -117,9 +119,9 @@ describe("SegmentList", () => {
 
     render(<SegmentList segments={segments} />);
 
-    const speaker0First = screen.getByTestId("segment-speaker-0");
-    const speaker1 = screen.getByTestId("segment-speaker-1");
-    const speaker0Second = screen.getByTestId("segment-speaker-2");
+    const speaker0First = screen.getByTestId("segment-speaker-select-0");
+    const speaker1 = screen.getByTestId("segment-speaker-select-1");
+    const speaker0Second = screen.getByTestId("segment-speaker-select-2");
 
     // Same speaker gets same color
     expect(speaker0First.style.color).toBe(speaker0Second.style.color);

@@ -9,6 +9,8 @@ function makeSegment(overrides: Partial<Segment> & { index: number; start: numbe
     text: 'Hello world',
     edited_text: null,
     pii_flagged: false,
+    speaker_override: null,
+    excluded: false,
     ...overrides,
   };
 }

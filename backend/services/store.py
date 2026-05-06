@@ -76,6 +76,33 @@ class TranscriptStore:
                 continue
         return summaries
 
+    def delete(self, transcript_id: str) -> None:
+        """Delete a transcript JSON file and its associated audio files.
+
+        Raises:
+            FileNotFoundError: If the transcript file does not exist.
+        """
+        file_path = self.storage_dir / f"{transcript_id}.json"
+        if not file_path.exists():
+            raise FileNotFoundError(f"Transcript {transcript_id} not found")
+
+        # Load transcript to get audio file path for cleanup
+        try:
+            transcript = self.load(transcript_id)
+            audio_path = Path(transcript.metadata.audio_file_path)
+            # Delete the audio file and its parent directory (transcript_id folder)
+            if audio_path.exists():
+                audio_path.unlink()
+            audio_dir = audio_path.parent
+            if audio_dir.exists() and audio_dir != audio_path:
+                import shutil
+                shutil.rmtree(audio_dir, ignore_errors=True)
+        except (ValueError, Exception):
+            # If we can't parse the transcript, still delete the JSON file
+            pass
+
+        file_path.unlink()
+
     def update_segment(
         self, transcript_id: str, segment_index: int, updates: SegmentUpdate
     ) -> None:
@@ -99,5 +126,9 @@ class TranscriptStore:
             segment.edited_text = updates.edited_text
         if updates.pii_flagged is not None:
             segment.pii_flagged = updates.pii_flagged
+        if updates.speaker_override is not None:
+            segment.speaker_override = updates.speaker_override
+        if updates.excluded is not None:
+            segment.excluded = updates.excluded
 
         self.save(transcript)

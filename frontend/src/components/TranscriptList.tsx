@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { getTranscripts } from '../api/client';
+import { useEffect, useState, useCallback } from 'react';
+import { getTranscripts, deleteTranscript } from '../api/client';
 import type { TranscriptSummary } from '../types/transcript';
 
 export interface TranscriptListProps {
@@ -67,6 +67,21 @@ export function TranscriptList({ onSelectTranscript }: TranscriptListProps) {
     };
   }, []);
 
+  const handleDelete = useCallback(
+    async (e: React.MouseEvent, transcriptId: string) => {
+      e.stopPropagation();
+      if (!window.confirm('Delete this transcript? This cannot be undone.')) return;
+
+      try {
+        await deleteTranscript(transcriptId);
+        setTranscripts((prev) => prev.filter((t) => t.id !== transcriptId));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete transcript');
+      }
+    },
+    []
+  );
+
   if (loading) {
     return (
       <div role="status" aria-label="Loading transcripts">
@@ -85,28 +100,47 @@ export function TranscriptList({ onSelectTranscript }: TranscriptListProps) {
 
   if (transcripts.length === 0) {
     return (
-      <div aria-label="No transcripts">
+      <div className="transcript-list-empty" aria-label="No transcripts">
         <p>No transcripts yet. Upload an audio file to get started.</p>
       </div>
     );
   }
 
   return (
-    <ul role="list" aria-label="Transcript list">
+    <ul className="transcript-list" role="list" aria-label="Transcript list">
       {transcripts.map((transcript) => (
         <li
           key={transcript.id}
+          className="transcript-list-item"
           role="listitem"
           aria-label={`Transcript: ${transcript.audio_file_name}`}
         >
           <button
             type="button"
+            className="transcript-list-item-content"
             onClick={() => onSelectTranscript(transcript.id)}
             aria-label={`Open transcript ${transcript.audio_file_name}`}
           >
-            <span data-testid="file-name">{transcript.audio_file_name}</span>
-            <span data-testid="date">{formatDate(transcript.transcription_date)}</span>
-            <span data-testid="status">{getStatusLabel(transcript.status)}</span>
+            <span className="transcript-file-name" data-testid="file-name">
+              {transcript.audio_file_name}
+            </span>
+            <span className="transcript-date" data-testid="date">
+              {formatDate(transcript.transcription_date)}
+            </span>
+            <span
+              className={`transcript-status transcript-status--${transcript.status}`}
+              data-testid="status"
+            >
+              {getStatusLabel(transcript.status)}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="transcript-delete-btn btn-danger"
+            onClick={(e) => handleDelete(e, transcript.id)}
+            aria-label={`Delete transcript ${transcript.audio_file_name}`}
+          >
+            Delete
           </button>
         </li>
       ))}

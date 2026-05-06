@@ -3,6 +3,7 @@ import type { Segment, SegmentUpdate } from "../types/transcript";
 
 export interface SegmentListProps {
   segments: Segment[];
+  speakers?: string[];
   activeSegmentIndex?: number | null;
   onSegmentClick?: (segment: Segment) => void;
   onSegmentUpdate?: (index: number, update: SegmentUpdate) => void;
@@ -41,6 +42,7 @@ export function formatTimestamp(seconds: number): string {
 
 export function SegmentList({
   segments,
+  speakers = [],
   activeSegmentIndex,
   onSegmentClick,
   onSegmentUpdate,
@@ -50,11 +52,11 @@ export function SegmentList({
 
   const speakerColorMap = React.useMemo(() => {
     const map = new Map<string, number>();
-    // Assign colors in order of first appearance
     const sorted = [...segments].sort((a, b) => a.start - b.start);
     for (const seg of sorted) {
-      if (!map.has(seg.speaker)) {
-        map.set(seg.speaker, map.size);
+      const spk = seg.speaker_override ?? seg.speaker;
+      if (!map.has(spk)) {
+        map.set(spk, map.size);
       }
     }
     return map;
@@ -64,6 +66,15 @@ export function SegmentList({
     () => [...segments].sort((a, b) => a.start - b.start),
     [segments]
   );
+
+  // Speaker options: existing speakers + "MULTIPLE"
+  const speakerOptions = React.useMemo(() => {
+    const opts = [...speakers];
+    if (!opts.includes("MULTIPLE")) {
+      opts.push("MULTIPLE");
+    }
+    return opts;
+  }, [speakers]);
 
   function handleEditClick(e: React.MouseEvent, segment: Segment) {
     e.stopPropagation();
@@ -89,6 +100,19 @@ export function SegmentList({
     onSegmentUpdate?.(segment.index, { edited_text: null });
   }
 
+  function handleSpeakerChange(e: React.ChangeEvent<HTMLSelectElement>, segment: Segment) {
+    e.stopPropagation();
+    const value = e.target.value;
+    // If selecting the original speaker, clear the override
+    const override = value === segment.speaker ? null : value;
+    onSegmentUpdate?.(segment.index, { speaker_override: override ?? segment.speaker });
+  }
+
+  function handleExcludedToggle(e: React.MouseEvent, segment: Segment) {
+    e.stopPropagation();
+    onSegmentUpdate?.(segment.index, { excluded: !segment.excluded });
+  }
+
   return (
     <div className="segment-list" role="list">
       {sortedSegments.map((segment) => {
@@ -96,24 +120,40 @@ export function SegmentList({
         const isEdited = segment.edited_text !== null;
         const isEditing = editingIndex === segment.index;
         const displayText = segment.edited_text ?? segment.text;
-        const speakerColor = getSpeakerColor(segment.speaker, speakerColorMap);
+        const effectiveSpeaker = segment.speaker_override ?? segment.speaker;
+        const speakerColor = getSpeakerColor(effectiveSpeaker, speakerColorMap);
+        const isExcluded = segment.excluded;
 
         return (
           <div
             key={segment.index}
-            className={`segment-item${isActive ? " segment-item--active" : ""}${isEdited ? " segment-item--edited" : ""}${segment.pii_flagged ? " segment-item--pii" : ""}`}
+            className={[
+              "segment-item",
+              isActive && "segment-item--active",
+              isEdited && "segment-item--edited",
+              segment.pii_flagged && "segment-item--pii",
+              isExcluded && "segment-item--excluded",
+            ].filter(Boolean).join(" ")}
             role="listitem"
             data-testid={`segment-${segment.index}`}
             onClick={() => onSegmentClick?.(segment)}
           >
             <div className="segment-header">
-              <span
-                className="segment-speaker"
+              <select
+                className="segment-speaker-select"
+                value={effectiveSpeaker}
+                onChange={(e) => handleSpeakerChange(e, segment)}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Change speaker for segment ${segment.index}`}
+                data-testid={`segment-speaker-select-${segment.index}`}
                 style={{ color: speakerColor }}
-                data-testid={`segment-speaker-${segment.index}`}
               >
-                {segment.speaker}
-              </span>
+                {speakerOptions.map((spk) => (
+                  <option key={spk} value={spk}>
+                    {spk}
+                  </option>
+                ))}
+              </select>
               <span
                 className="segment-timestamps"
                 data-testid={`segment-timestamps-${segment.index}`}
@@ -136,38 +176,57 @@ export function SegmentList({
                   edited
                 </span>
               )}
-              <button
-                className="segment-pii-toggle"
-                data-testid={`segment-pii-toggle-${segment.index}`}
-                aria-label={`Flag segment ${segment.index} as PII`}
-                aria-pressed={segment.pii_flagged}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSegmentUpdate?.(segment.index, { pii_flagged: !segment.pii_flagged });
-                }}
-              >
-                {segment.pii_flagged ? "Unflag PII" : "Flag PII"}
-              </button>
-              {!isEditing && (
-                <button
-                  className="segment-edit-btn"
-                  data-testid={`segment-edit-btn-${segment.index}`}
-                  aria-label={`Edit segment ${segment.index}`}
-                  onClick={(e) => handleEditClick(e, segment)}
+              {isExcluded && (
+                <span
+                  className="segment-excluded-badge"
+                  data-testid={`segment-excluded-badge-${segment.index}`}
                 >
-                  Edit
-                </button>
+                  excluded
+                </span>
               )}
-              {isEdited && !isEditing && (
+              <div className="segment-actions">
                 <button
-                  className="segment-revert-btn"
-                  data-testid={`segment-revert-btn-${segment.index}`}
-                  aria-label={`Revert segment ${segment.index} to original`}
-                  onClick={(e) => handleRevertClick(e, segment)}
+                  className={`segment-exclude-btn${isExcluded ? " segment-exclude-btn--active" : ""}`}
+                  data-testid={`segment-exclude-btn-${segment.index}`}
+                  aria-label={`${isExcluded ? "Include" : "Exclude"} segment ${segment.index}`}
+                  aria-pressed={isExcluded}
+                  onClick={(e) => handleExcludedToggle(e, segment)}
                 >
-                  Revert
+                  {isExcluded ? "Include" : "Don't use"}
                 </button>
-              )}
+                <button
+                  className="segment-pii-toggle"
+                  data-testid={`segment-pii-toggle-${segment.index}`}
+                  aria-label={`Flag segment ${segment.index} as PII`}
+                  aria-pressed={segment.pii_flagged}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSegmentUpdate?.(segment.index, { pii_flagged: !segment.pii_flagged });
+                  }}
+                >
+                  {segment.pii_flagged ? "Unflag PII" : "Flag PII"}
+                </button>
+                {!isEditing && (
+                  <button
+                    className="segment-edit-btn"
+                    data-testid={`segment-edit-btn-${segment.index}`}
+                    aria-label={`Edit segment ${segment.index}`}
+                    onClick={(e) => handleEditClick(e, segment)}
+                  >
+                    Edit
+                  </button>
+                )}
+                {isEdited && !isEditing && (
+                  <button
+                    className="segment-revert-btn"
+                    data-testid={`segment-revert-btn-${segment.index}`}
+                    aria-label={`Revert segment ${segment.index} to original`}
+                    onClick={(e) => handleRevertClick(e, segment)}
+                  >
+                    Revert
+                  </button>
+                )}
+              </div>
             </div>
             {isEditing ? (
               <div className="segment-edit-area" data-testid={`segment-edit-area-${segment.index}`}>
@@ -197,7 +256,7 @@ export function SegmentList({
               </div>
             ) : (
               <div
-                className="segment-text"
+                className={`segment-text${isExcluded ? " segment-text--excluded" : ""}`}
                 data-testid={`segment-text-${segment.index}`}
               >
                 {displayText}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getTranscriptStatus } from '../api/client';
 
 const POLL_INTERVAL_MS = 2000;
@@ -19,14 +19,6 @@ export function useTranscriptionStatus(transcriptId: string | null): Transcripti
   const [error, setError] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
-
-  const stopPolling = useCallback(() => {
-    if (timeoutRef.current !== null) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    setIsPolling(false);
-  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;

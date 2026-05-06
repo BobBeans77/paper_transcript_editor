@@ -18,6 +18,8 @@ class Segment(BaseModel):
     text: str
     edited_text: str | None = None
     pii_flagged: bool = False
+    speaker_override: str | None = None
+    excluded: bool = False
 
 
 class TranscriptMetadata(BaseModel):
@@ -39,6 +41,8 @@ class TranscriptData(BaseModel):
 class SegmentUpdate(BaseModel):
     edited_text: str | None = None
     pii_flagged: bool | None = None
+    speaker_override: str | None = None
+    excluded: bool | None = None
 
 
 class TranscriptSummary(BaseModel):

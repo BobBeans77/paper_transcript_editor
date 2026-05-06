@@ -6,6 +6,8 @@ export interface Segment {
   text: string;
   edited_text: string | null;
   pii_flagged: boolean;
+  speaker_override: string | null;
+  excluded: boolean;
 }
 
 export interface TranscriptMetadata {
@@ -27,6 +29,8 @@ export interface TranscriptData {
 export interface SegmentUpdate {
   edited_text?: string | null;
   pii_flagged?: boolean;
+  speaker_override?: string | null;
+  excluded?: boolean;
 }
 
 export interface TranscriptSummary {

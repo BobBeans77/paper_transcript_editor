@@ -150,6 +150,18 @@ async def get_transcript_status(transcript_id: str):
         )
 
 
+@router.delete("/transcripts/{transcript_id}", status_code=204)
+async def delete_transcript(transcript_id: str):
+    """Delete a transcript and its associated audio files."""
+    try:
+        store.delete(transcript_id)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Transcript {transcript_id} not found",
+        )
+
+
 @router.put("/transcripts/{transcript_id}", response_model=TranscriptData)
 async def update_transcript(transcript_id: str, body: SegmentUpdateRequest):
     """Update segment edits and PII flags."""

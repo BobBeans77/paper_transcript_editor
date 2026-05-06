@@ -88,6 +88,20 @@ export async function updateSegment(
 }
 
 /**
+ * Delete a transcript and its associated audio files.
+ */
+export async function deleteTranscript(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/transcripts/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to delete transcript');
+  }
+}
+
+/**
  * Construct the audio streaming URL for a transcript.
  */
 export function getAudioUrl(id: string): string {

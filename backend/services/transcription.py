@@ -53,6 +53,8 @@ class TranscriptionService:
         """
         Run full WhisperX pipeline: transcribe, align, diarize.
 
+        If CUDA runs out of memory, automatically retries on CPU.
+
         Args:
             audio_path: Path to the audio file to transcribe.
             transcript_id: Unique identifier for this transcript.
@@ -78,38 +80,22 @@ class TranscriptionService:
                 f"Transcription failed: unable to load audio file - {e}"
             ) from e
 
-        try:
-            # Step 2: Load model and transcribe
-            logger.info(
-                "Loading WhisperX model '%s' on device '%s'",
-                self.model_name,
-                self.whisper_device,
-            )
-            model = whisperx.load_model(
-                self.model_name,
-                self.whisper_device,
-                compute_type=self.compute_type,
-            )
-            logger.info("Transcribing audio...")
-            result = model.transcribe(audio, batch_size=16)
-        except Exception as e:
-            raise RuntimeError(
-                f"Transcription failed: model transcription error - {e}"
-            ) from e
+        # Attempt transcription, falling back to CPU on OOM
+        result, actual_device, actual_compute_type = await self._transcribe_with_fallback(audio)
 
         try:
             # Step 3: Align timestamps (forced alignment)
             logger.info("Aligning timestamps...")
             language_code = result.get("language", "en")
             align_model, align_metadata = whisperx.load_align_model(
-                language_code=language_code, device=self.whisper_device
+                language_code=language_code, device=actual_device
             )
             result = whisperx.align(
                 result["segments"],
                 align_model,
                 align_metadata,
                 audio,
-                self.whisper_device,
+                actual_device,
                 return_char_alignments=False,
             )
         except Exception as e:
@@ -128,8 +114,9 @@ class TranscriptionService:
                 )
                 # Skip diarization — assign all segments to a single speaker
             else:
-                diarize_model = whisperx.DiarizationPipeline(
-                    use_auth_token=self.hf_token, device=self.whisper_device
+                from whisperx.diarize import DiarizationPipeline
+                diarize_model = DiarizationPipeline(
+                    token=self.hf_token, device=actual_device
                 )
                 diarize_segments = diarize_model(audio)
                 result = whisperx.assign_word_speakers(diarize_segments, result)
@@ -151,7 +138,7 @@ class TranscriptionService:
             transcription_date=datetime.now(timezone.utc),
             total_duration_seconds=total_duration,
             model_name=self.model_name,
-            device_used=self.device,
+            device_used=actual_device,
             status=TranscriptionStatus.COMPLETED,
         )
 
@@ -160,6 +147,69 @@ class TranscriptionService:
             metadata=metadata,
             segments=segments,
         )
+
+    async def _transcribe_with_fallback(
+        self, audio
+    ) -> tuple[dict, str, str]:
+        """
+        Attempt transcription on the configured device. If CUDA OOM occurs,
+        free GPU memory and retry on CPU with int8 and a smaller batch size.
+
+        Returns:
+            Tuple of (result dict, device used, compute_type used).
+        """
+        import gc
+        import torch
+
+        # Try with configured device first
+        try:
+            logger.info(
+                "Loading WhisperX model '%s' on device '%s' (compute_type=%s)",
+                self.model_name,
+                self.whisper_device,
+                self.compute_type,
+            )
+            model = whisperx.load_model(
+                self.model_name,
+                self.whisper_device,
+                compute_type=self.compute_type,
+            )
+            logger.info("Transcribing audio (batch_size=16)...")
+            result = model.transcribe(audio, batch_size=16, language="en")
+            del model
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            return result, self.whisper_device, self.compute_type
+        except RuntimeError as e:
+            if "out of memory" not in str(e).lower():
+                raise RuntimeError(
+                    f"Transcription failed: model transcription error - {e}"
+                ) from e
+
+        # CUDA OOM — free GPU memory and fall back to CPU
+        logger.warning(
+            "CUDA out of memory. Freeing GPU memory and retrying on CPU with int8..."
+        )
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        try:
+            model = whisperx.load_model(
+                self.model_name,
+                "cpu",
+                compute_type="int8",
+            )
+            logger.info("Transcribing audio on CPU (batch_size=4)...")
+            result = model.transcribe(audio, batch_size=4, language="en")
+            del model
+            gc.collect()
+            return result, "cpu", "int8"
+        except Exception as e:
+            raise RuntimeError(
+                f"Transcription failed: CPU fallback also failed - {e}"
+            ) from e
 
     def _build_segments(self, raw_segments: list[dict]) -> list[Segment]:
         """
