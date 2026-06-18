@@ -1,4 +1,4 @@
-import type { SegmentUpdate, TranscriptData, TranscriptSummary } from '../types/transcript';
+import type { AccentTag, SegmentUpdate, TranscriptData, TranscriptSummary } from '../types/transcript';
 
 const API_BASE = '/api';
 
@@ -106,4 +106,22 @@ export async function deleteTranscript(id: string): Promise<void> {
  */
 export function getAudioUrl(id: string): string {
   return `${API_BASE}/transcripts/${id}/audio`;
+}
+
+/**
+ * Set or clear the accent tag on a transcript.
+ */
+export async function updateAccent(id: string, accent: AccentTag | null): Promise<TranscriptData> {
+  const response = await fetch(`${API_BASE}/transcripts/${id}/accent`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accent }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update accent');
+  }
+
+  return response.json();
 }

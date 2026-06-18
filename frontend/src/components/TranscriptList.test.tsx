@@ -19,6 +19,7 @@ const mockTranscripts = [
     segment_count: 12,
     pii_flagged_count: 2,
     edited_count: 3,
+    accent: null,
   },
   {
     id: 'transcript-2',
@@ -28,6 +29,7 @@ const mockTranscripts = [
     segment_count: 8,
     pii_flagged_count: 0,
     edited_count: 0,
+    accent: null,
   },
 ];
 
@@ -57,7 +59,7 @@ describe('TranscriptList component', () => {
     });
 
     expect(screen.getByText('meeting-notes.mp3')).toBeInTheDocument();
-    expect(screen.getByRole('list', { name: /transcript list/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/transcript list grouped by accent/i)).toBeInTheDocument();
   });
 
   it('shows empty state when no transcripts', async () => {

@@ -10,6 +10,8 @@ export interface Segment {
   excluded: boolean;
 }
 
+export type AccentTag = "Birmingham" | "Northern" | "Yorkshire" | "Wales" | "Southern";
+
 export interface TranscriptMetadata {
   audio_file_name: string;
   audio_file_path: string;
@@ -18,6 +20,7 @@ export interface TranscriptMetadata {
   model_name: string;
   device_used: string;
   status: "pending" | "processing" | "completed" | "failed";
+  accent: AccentTag | null;
 }
 
 export interface TranscriptData {
@@ -41,4 +44,5 @@ export interface TranscriptSummary {
   segment_count: number;
   pii_flagged_count: number;
   edited_count: number;
+  accent: AccentTag | null;
 }

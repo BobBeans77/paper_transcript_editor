@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from models.transcript import (
+    AccentTag,
     Segment,
     SegmentUpdate,
     TranscriptData,
@@ -69,6 +70,7 @@ class TranscriptStore:
                     edited_count=sum(
                         1 for s in transcript.segments if s.edited_text is not None
                     ),
+                    accent=transcript.metadata.accent,
                 )
                 summaries.append(summary)
             except (json.JSONDecodeError, Exception):
@@ -131,4 +133,17 @@ class TranscriptStore:
         if updates.excluded is not None:
             segment.excluded = updates.excluded
 
+        self.save(transcript)
+
+    def update_accent(
+        self, transcript_id: str, accent: AccentTag | None
+    ) -> None:
+        """Update the accent tag on a transcript's metadata.
+
+        Raises:
+            FileNotFoundError: If the transcript file does not exist.
+            ValueError: If the transcript file is corrupt.
+        """
+        transcript = self.load(transcript_id)
+        transcript.metadata.accent = accent
         self.save(transcript)

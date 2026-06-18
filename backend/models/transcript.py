@@ -10,6 +10,14 @@ class TranscriptionStatus(str, Enum):
     FAILED = "failed"
 
 
+class AccentTag(str, Enum):
+    BIRMINGHAM = "Birmingham"
+    NORTHERN = "Northern"
+    YORKSHIRE = "Yorkshire"
+    WALES = "Wales"
+    SOUTHERN = "Southern"
+
+
 class Segment(BaseModel):
     index: int
     start: float
@@ -30,6 +38,7 @@ class TranscriptMetadata(BaseModel):
     model_name: str
     device_used: str
     status: TranscriptionStatus
+    accent: AccentTag | None = None
 
 
 class TranscriptData(BaseModel):
@@ -53,3 +62,4 @@ class TranscriptSummary(BaseModel):
     segment_count: int
     pii_flagged_count: int
     edited_count: int
+    accent: AccentTag | None = None

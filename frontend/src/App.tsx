@@ -5,8 +5,8 @@ import { SegmentList } from './components/SegmentList';
 import { AudioPlayer } from './components/AudioPlayer';
 import type { AudioPlayerHandle } from './components/AudioPlayer';
 import { useActiveSegment } from './hooks/useActiveSegment';
-import { getTranscript, updateSegment, getAudioUrl } from './api/client';
-import type { TranscriptData, Segment, SegmentUpdate } from './types/transcript';
+import { getTranscript, updateSegment, updateAccent, getAudioUrl } from './api/client';
+import type { TranscriptData, Segment, SegmentUpdate, AccentTag } from './types/transcript';
 
 type AppView = 'list' | 'review';
 
@@ -110,6 +110,21 @@ function App() {
     ? [...new Set(transcript.segments.map((s) => s.speaker_override ?? s.speaker))]
     : [];
 
+  const ACCENT_OPTIONS: AccentTag[] = ['Birmingham', 'Northern', 'Yorkshire', 'Wales', 'Southern'];
+
+  const handleAccentChange = useCallback(
+    async (accent: AccentTag | null) => {
+      if (!currentTranscriptId) return;
+      try {
+        const updated = await updateAccent(currentTranscriptId, accent);
+        setTranscript(updated);
+      } catch (err) {
+        console.error('Failed to update accent:', err);
+      }
+    },
+    [currentTranscriptId]
+  );
+
   return (
     <div className="app">
       <header className="app-header">
@@ -141,6 +156,24 @@ function App() {
           </button>
 
           <h2>{transcript.metadata.audio_file_name}</h2>
+
+          <div className="accent-selector">
+            <label htmlFor="accent-select">Accent: </label>
+            <select
+              id="accent-select"
+              value={transcript.metadata.accent ?? ''}
+              onChange={(e) =>
+                handleAccentChange(e.target.value ? (e.target.value as AccentTag) : null)
+              }
+            >
+              <option value="">— None —</option>
+              {ACCENT_OPTIONS.map((accent) => (
+                <option key={accent} value={accent}>
+                  {accent}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <AudioPlayer
             ref={audioPlayerRef}

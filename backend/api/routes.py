@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from models.transcript import (
+    AccentTag,
     SegmentUpdate,
     TranscriptData,
     TranscriptSummary,
@@ -19,7 +20,7 @@ from services.store import TranscriptStore
 router = APIRouter(prefix="/api")
 
 ALLOWED_EXTENSIONS = {"wav", "mp3", "flac", "m4a"}
-MAX_FILE_SIZE_MB = int(os.environ.get("MAX_UPLOAD_SIZE_MB", "500"))
+MAX_FILE_SIZE_MB = int(os.environ.get("MAX_UPLOAD_SIZE_MB", "550"))
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 AUDIO_FILES_DIR = Path(os.environ.get("AUDIO_FILES_DIR", "audio_files"))
@@ -119,6 +120,12 @@ class SegmentUpdateRequest(BaseModel):
     updates: SegmentUpdate
 
 
+class AccentUpdateRequest(BaseModel):
+    """Request body for setting the accent tag on a transcript."""
+
+    accent: AccentTag | None = None
+
+
 @router.get("/transcripts", response_model=list[TranscriptSummary])
 async def list_transcripts():
     """Return list of all transcript summaries."""
@@ -177,6 +184,19 @@ async def update_transcript(transcript_id: str, body: SegmentUpdateRequest):
         raise HTTPException(
             status_code=400,
             detail=f"Segment index {body.segment_index} out of range",
+        )
+
+
+@router.patch("/transcripts/{transcript_id}/accent", response_model=TranscriptData)
+async def update_accent(transcript_id: str, body: AccentUpdateRequest):
+    """Set or clear the accent tag on a transcript."""
+    try:
+        store.update_accent(transcript_id, body.accent)
+        return store.load(transcript_id)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Transcript {transcript_id} not found",
         )
 
 

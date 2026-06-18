@@ -23,6 +23,7 @@ Each transcript is stored as a single JSON file at `transcripts/{transcript_id}.
 | `model_name` | string | WhisperX model used (e.g. `"large-v2"`) |
 | `device_used` | string | Compute device (`"cuda"`, `"mps"`, or `"cpu"`) |
 | `status` | string | One of: `"pending"`, `"processing"`, `"completed"`, `"failed"` |
+| `accent` | string \| null | Regional accent tag, or null if not set. One of: `"Birmingham"`, `"Northern"`, `"Yorkshire"`, `"Wales"`, `"Southern"` |
 
 ## Segment
 
@@ -50,7 +51,8 @@ Each transcript is stored as a single JSON file at `transcripts/{transcript_id}.
     "total_duration_seconds": 342.5,
     "model_name": "large-v2",
     "device_used": "cuda",
-    "status": "completed"
+    "status": "completed",
+    "accent": "Yorkshire"
   },
   "segments": [
     {
